@@ -1,43 +1,50 @@
 package jm.task.core.jdbc.util;
 
-import java.sql.*;
+import jm.task.core.jdbc.model.User;
+import org.hibernate.SessionFactory;
+import org.hibernate.boot.MetadataSources;
+import org.hibernate.boot.registry.StandardServiceRegistry;
+import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class Util {
-    public static final String DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String URL = "jdbc:mysql://localhost:3306/usersdb?verifyServerCertificate=false&useSSL=true";
-    private static final String USERNAME = "root1";
-    private static final String PASSWORD = "root1";
+    private static StandardServiceRegistry registry;
+    private static SessionFactory sessionFactory;
 
-    private static volatile Util instance;
-    private static Connection connection = null;
+    public static SessionFactory getConnection() {
+        if (sessionFactory == null) {
+            try {
+                StandardServiceRegistryBuilder registryBuilder =
+                        new StandardServiceRegistryBuilder();
 
-    private Util() {
-    }
+                Map<String, String> settings = new HashMap<>();
+                settings.put("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
+                settings.put("hibernate.connection.url", "jdbc:mysql://localhost:3306/usersdb?serverTimezone=Europe/Moscow");
+                settings.put("hibernate.connection.username", "root1");
+                settings.put("hibernate.connection.password", "root1");
+                settings.put("hibernate.show_sql", "true");
+                settings.put("hibernate.hbm2ddl.auto", "create-drop");
 
-    public static Util getInstance() {
-        Util singleInstance = instance;
-        if (singleInstance == null) {
-            synchronized (Util.class) {
-                singleInstance = instance;
-                if (singleInstance == null) {
-                    instance = singleInstance = new Util();
+                registryBuilder.applySettings(settings);
+                registry = registryBuilder.build();
+                MetadataSources sources = new MetadataSources(registry)
+                        .addAnnotatedClass(User.class);
+
+                sessionFactory = sources.buildMetadata().buildSessionFactory();
+
+            } catch (Exception e) {
+                System.out.println("SessionFactory creation failed");
+                e.printStackTrace();
+                if (registry != null) {
+                    StandardServiceRegistryBuilder.destroy(registry);
                 }
             }
         }
-        return singleInstance;
-    }
-
-    public static Connection getConnection() {
-        try {
-            connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
-            Class.forName(DRIVER);
-            if (!connection.isClosed()) {
-                System.out.println("DB connection established");
-            }
-        } catch (ClassNotFoundException | SQLException e) {
-            System.out.println("DB connection not established");
-            e.printStackTrace();
-        }
-        return connection;
+        return sessionFactory;
     }
 }
+
+
+
